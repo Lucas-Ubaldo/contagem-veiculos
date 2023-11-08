@@ -2,8 +2,8 @@ import cv2
 import numpy as np
 from time import sleep
 
-captura = cv2.VideoCapture("videos/highway2.mp4")
-hasFrame, frame = captura.read()
+captura = cv2.VideoCapture("videos/traffic.mp4")
+_, frame = captura.read()
 
 subtracao = cv2.createBackgroundSubtractorMOG2(history=50, detectShadows=False, varThreshold=200)
 
@@ -19,17 +19,17 @@ linhas_color = (255, 255, 255)
 
 def gerar_kernel(tipo_kernel):
     if tipo_kernel == "dilation":
-        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2, 2))
+        kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (8, 8))
     if tipo_kernel == "opening":
-        kernel = np.ones((5, 5), np.uint8)
+        kernel = np.ones((10, 10), np.uint8)
     if tipo_kernel == "closing":
         kernel = np.ones((10, 10), np.uint8)
     return kernel
 
 def aplicar_filtro(subtraido):
-    closing = cv2.morphologyEx(subtraido, cv2.MORPH_CLOSE, gerar_kernel("closing"), iterations=2)
-    opening = cv2.morphologyEx(closing, cv2.MORPH_OPEN, gerar_kernel("opening"), iterations=2)
-    dilation = cv2.dilate(opening, gerar_kernel("dilation"), iterations=2)
+    closing = cv2.morphologyEx(subtraido, cv2.MORPH_CLOSE, gerar_kernel("closing"), iterations=3)
+    opening = cv2.morphologyEx(closing, cv2.MORPH_OPEN, gerar_kernel("opening"), iterations=3)
+    dilation = cv2.dilate(opening, gerar_kernel("dilation"), iterations=3)
     return dilation
 
 def selecionar_area(frame):
@@ -55,9 +55,8 @@ while True:
     break 
   sleep(tempo) 
 
-  escala_cinza = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
   roi = selecionar_area(frame)
+  roi = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
     
   subtraido = subtracao.apply(roi)
   dilatado = aplicar_filtro(subtraido)
@@ -66,7 +65,6 @@ while True:
   cv2.imshow("ROI", roi)
 
   frame = cv2.line(frame, (w1, linha1), (w1 + w2, linha1), linhas_color, 2)
-  frame = cv2.line(frame, (w1, h1 + linha2), (w1 + w2, h1 + linha2), linhas_color, 2)
 
   deteccao = detectar_veiculo(dilatado)
 
