@@ -17,7 +17,7 @@ class SelecionarRegiaoInteresse:
     def selecionar_area(self, frame):
         return frame[self.h1:self.h1 + self.h2, self.w1:self.w1 + self.w2]
 
-    def desenhar_linhas(self, frame):
+    def desenhar_linhas(self, frame): #Adiciona uma linha do meio da área de seleção
         centro_x = self.w1 + self.w2 // 2
         centro_y = self.h1 + self.h2 // 2
         cv2.line(frame, (self.w1, centro_y), (self.w1 + self.w2, centro_y), (255, 255, 255), 2)
@@ -53,7 +53,7 @@ class DetectarVeiculo:
         for (i, c) in enumerate(contours):
             (x, y, w, h) = cv2.boundingRect(c)
             normalized_area = (w * h) / total_area_roi
-            if normalized_area >= 0.05:
+            if normalized_area >= 0.06:
                 cv2.rectangle(frame, (x + self.w1, y + self.h1), (x + self.w1 + w, y + self.h1 + h), (0, 255, 0), 2)
                 centro_x = x + self.w1 + w // 2
                 centro_y = y + self.h1 + h // 2
