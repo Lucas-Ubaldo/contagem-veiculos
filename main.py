@@ -4,7 +4,7 @@ from time import sleep
 
 class SubtrairFundo:
     def __init__(self):
-        self.subtracao = cv2.createBackgroundSubtractorMOG2(history=60, detectShadows=False, varThreshold=100)
+        self.subtracao = cv2.createBackgroundSubtractorMOG2(history=50, detectShadows=False, varThreshold=200)
 
     def aplicar_subtracao(self, roi_blur):
         return self.subtracao.apply(roi_blur)
@@ -39,29 +39,29 @@ class ContadorVeiculos:
                 self.texto_contagem = "Carros detectados:" + str(self.carros)
 
 class DetectarVeiculo:
-    def __init__(self, w1, h1, w2, contador_veiculos):
+    def __init__(self, w1, h1, w2, h2, contador_veiculos):
         self.w1 = w1
         self.h1 = h1
         self.w2 = w2
+        self.h2 = h2
         self.contador_veiculos = contador_veiculos
         self.detec = []
 
     def detectar_veiculo(self, frame, dilatado):
         contours, _ = cv2.findContours(dilatado, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        total_area_roi = self.w2 * self.h2 
         for (i, c) in enumerate(contours):
             (x, y, w, h) = cv2.boundingRect(c)
-            validar_contorno = (w >= 100) and (h >= 100)
-            if not validar_contorno:
-                continue
-            cv2.rectangle(frame, (x + self.w1, y + self.h1), (x + self.w1 + w, y + self.h1 + h), (0, 255, 0), 2)
-            centro_x = x + self.w1 + w // 2
-            centro_y = y + self.h1 + h // 2
-            centro = centro_x, centro_y
-            self.detec.append(centro)
-            cv2.circle(frame, (centro_x, centro_y), 2, (0, 255, 255), -1)
-            self.contador_veiculos.contar_veiculos(self.detec)
-
-        
+            normalized_area = (w * h) / total_area_roi
+            if normalized_area >= 0.05:
+                cv2.rectangle(frame, (x + self.w1, y + self.h1), (x + self.w1 + w, y + self.h1 + h), (0, 255, 0), 2)
+                centro_x = x + self.w1 + w // 2
+                centro_y = y + self.h1 + h // 2
+                centro = centro_x, centro_y
+                self.detec.append(centro)
+                cv2.circle(frame, (centro_x, centro_y), 2, (0, 255, 255), -1)
+                self.contador_veiculos.contar_veiculos(self.detec)
+            
         cv2.putText(frame, self.contador_veiculos.texto_contagem, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 255), 2)
         
 class Video:
@@ -72,7 +72,7 @@ class Video:
         self.subtracao_fundo = SubtrairFundo()
         self.selecao_roi = SelecionarRegiaoInteresse(self.frame)
         self.contador_veiculos = ContadorVeiculos(self.selecao_roi.h1 + self.selecao_roi.h2 // 2, 10)
-        self.deteccao_veiculo = DetectarVeiculo(self.selecao_roi.w1, self.selecao_roi.h1, self.selecao_roi.w2, self.contador_veiculos)
+        self.deteccao_veiculo = DetectarVeiculo(self.selecao_roi.w1, self.selecao_roi.h1, self.selecao_roi.w2, self.selecao_roi.h2, self.contador_veiculos)
 
     def processar_video(self):
         while True:
@@ -84,7 +84,7 @@ class Video:
 
             roi = self.selecao_roi.selecionar_area(self.frame)
             roi_tons_cinza = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
-            roi_blur = cv2.GaussianBlur(roi_tons_cinza, (5,5), 5)
+            roi_blur = cv2.GaussianBlur(roi_tons_cinza, (3,3), 5)
 
             subtraido = self.subtracao_fundo.aplicar_subtracao(roi_blur)
             
@@ -105,9 +105,9 @@ class Video:
         cv2.destroyAllWindows()
 
     def aplicar_filtros(self, subtraido):
-        closing = cv2.morphologyEx(subtraido, cv2.MORPH_CLOSE, np.ones((10, 10), np.uint8), iterations=3)
-        opening = cv2.morphologyEx(closing, cv2.MORPH_OPEN, np.ones((10, 10), np.uint8), iterations=3)
-        dilated = cv2.dilate(opening, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (8, 8)), iterations=3)
+        closing = cv2.morphologyEx(subtraido, cv2.MORPH_CLOSE, np.ones((11, 11), np.uint8), iterations=2)
+        opening = cv2.morphologyEx(closing, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8), iterations=2)
+        dilated = cv2.dilate(opening, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2, 2)), iterations=3)
         return dilated
 
 video = Video("videos/traffic.mp4")
