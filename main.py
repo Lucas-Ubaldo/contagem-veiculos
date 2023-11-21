@@ -17,7 +17,7 @@ class SelecionarRegiaoInteresse:
     def selecionar_area(self, frame):
         return frame[self.h1:self.h1 + self.h2, self.w1:self.w1 + self.w2]
 
-    def desenhar_linhas(self, frame): #Adiciona uma linha do meio da área de seleção
+    def desenhar_linha(self, frame): 
         centro_x = self.w1 + self.w2 // 2
         centro_y = self.h1 + self.h2 // 2
         cv2.line(frame, (self.w1, centro_y), (self.w1 + self.w2, centro_y), (255, 255, 255), 2)
@@ -27,18 +27,18 @@ class ContadorVeiculos:
     def __init__(self, pos_linha, offset):
         self.pos_linha = pos_linha
         self.offset = offset
-        self.carros = 0
-        self.texto_contagem = "Carros detectados: 0"
+        self.veiculos = 0
+        self.texto_contagem = "Veiculos detectados: 0"
         self.posicoes_anteriores = set()
 
     def contar_veiculos(self, detec):
         for(x, y) in detec:
             if (self.pos_linha + self.offset) > y > (self.pos_linha - self.offset):
-                self.carros += 1
+                self.veiculos += 1
                 detec.remove((x, y))
-                self.texto_contagem = "Carros detectados:" + str(self.carros)
+                self.texto_contagem = "Veiculos detectados:" + str(self.veiculos)
 
-class DetectarVeiculo:
+class DetectarVeiculos:
     def __init__(self, w1, h1, w2, h2, contador_veiculos):
         self.w1 = w1
         self.h1 = h1
@@ -47,10 +47,10 @@ class DetectarVeiculo:
         self.contador_veiculos = contador_veiculos
         self.detec = []
 
-    def detectar_veiculo(self, frame, dilatado):
-        contours, _ = cv2.findContours(dilatado, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    def detectar_veiculos(self, frame, morfologias):
+        contours, _ = cv2.findContours(morfologias, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
         total_area_roi = self.w2 * self.h2 
-        for (i, c) in enumerate(contours):
+        for c in contours:
             (x, y, w, h) = cv2.boundingRect(c)
             normalized_area = (w * h) / total_area_roi
             if normalized_area >= 0.06:
@@ -72,7 +72,7 @@ class Video:
         self.subtracao_fundo = SubtrairFundo()
         self.selecao_roi = SelecionarRegiaoInteresse(self.frame)
         self.contador_veiculos = ContadorVeiculos(self.selecao_roi.h1 + self.selecao_roi.h2 // 2, 10)
-        self.deteccao_veiculo = DetectarVeiculo(self.selecao_roi.w1, self.selecao_roi.h1, self.selecao_roi.w2, self.selecao_roi.h2, self.contador_veiculos)
+        self.deteccao_veiculos = DetectarVeiculos(self.selecao_roi.w1, self.selecao_roi.h1, self.selecao_roi.w2, self.selecao_roi.h2, self.contador_veiculos)
 
     def processar_video(self):
         while True:
@@ -83,20 +83,20 @@ class Video:
                 break
 
             roi = self.selecao_roi.selecionar_area(self.frame)
-            roi_tons_cinza = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
-            roi_blur = cv2.GaussianBlur(roi_tons_cinza, (3,3), 5)
+            roi_escala_cinza = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+            roi_blur = cv2.GaussianBlur(roi_escala_cinza, (3,3), 0)
 
             subtraido = self.subtracao_fundo.aplicar_subtracao(roi_blur)
             
-            dilatado = self.aplicar_filtros(subtraido)
+            morfologias = self.transformacao_morfologica(subtraido)
 
-            self.selecao_roi.desenhar_linhas(self.frame)
+            self.selecao_roi.desenhar_linha(self.frame)
 
-            self.deteccao_veiculo.detectar_veiculo(self.frame, dilatado)
+            self.deteccao_veiculos.detectar_veiculos(self.frame, morfologias)
 
-            cv2.imshow('Video c/ filtros', dilatado)
+            cv2.imshow('Morfologias', morfologias)
             cv2.imshow("ROI", roi)
-            cv2.imshow("Frame", self.frame)
+            cv2.imshow("Resultado", self.frame)
 
             if cv2.waitKey(1) == ord('q'):  # Pressionar q para fechar
                 break
@@ -104,10 +104,11 @@ class Video:
         self.captura.release()
         cv2.destroyAllWindows()
 
-    def aplicar_filtros(self, subtraido):
-        closing = cv2.morphologyEx(subtraido, cv2.MORPH_CLOSE, np.ones((11, 11), np.uint8), iterations=2)
-        opening = cv2.morphologyEx(closing, cv2.MORPH_OPEN, np.ones((3, 3), np.uint8), iterations=2)
-        dilated = cv2.dilate(opening, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (2, 2)), iterations=3)
+    def transformacao_morfologica(self, subtraido):
+        kernel = np.ones((5,5),np.uint8)
+        closing = cv2.morphologyEx(subtraido, cv2.MORPH_CLOSE, kernel , iterations=6)
+        opening = cv2.morphologyEx(closing, cv2.MORPH_OPEN, kernel, iterations=1)
+        dilated = cv2.dilate(opening, kernel, iterations=3)
         return dilated
 
 video = Video("videos/traffic.mp4")
