@@ -4,7 +4,7 @@ from time import sleep
 
 class SubtrairFundo:
     def __init__(self):
-        self.subtracao = cv2.createBackgroundSubtractorMOG2(history=100, detectShadows=False, varThreshold=200)
+        self.subtracao = cv2.createBackgroundSubtractorMOG2(history=80, detectShadows=False, varThreshold=200)
 
     def aplicar_subtracao(self, roi_blur):
         return self.subtracao.apply(roi_blur)
@@ -108,7 +108,7 @@ class Video:
     def transformacao_morfologica(self, subtraido):
         kernel = np.ones((5,5),np.uint8)
         closing = cv2.morphologyEx(subtraido, cv2.MORPH_CLOSE, kernel , iterations=5)
-        opening = cv2.morphologyEx(closing, cv2.MORPH_OPEN, kernel, iterations=3)
+        opening = cv2.morphologyEx(closing, cv2.MORPH_OPEN, kernel, iterations=2)
         dilated = cv2.dilate(opening, kernel, iterations=3)
         return dilated
 
